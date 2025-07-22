@@ -20,6 +20,31 @@ DEFAULT_CONFIG = {
     # Tool settings
     "online_tools": True,
 
+    # MongoDB用户认证默认配置
+    "mongodb_auth": {
+        "enabled": True,  # 启用MongoDB认证存储
+        "host": "localhost",
+        "port": 27017,
+        "username": "admin",
+        "password": "Trade123456",
+        "database": "tradingagents",
+        "auth_source": "admin",
+        "collections": {
+            "users": "auth_users",
+            "sessions": "auth_sessions"
+        }
+    },
+
+    # 用户认证系统配置
+    "user_auth": {
+        "default_admin_username": "admin",
+        "default_admin_password": "Trade123456",
+        "session_expire_hours": 24,
+        "min_password_length": 6,
+        "require_login_for_analysis": True,  # 默认启用登录要求
+        "password_hash_algorithm": "sha256"
+    },
+
     # Note: Database and cache configuration is now managed by .env file and config.database_manager
     # No database/cache settings in default config to avoid configuration conflicts
 }

@@ -28,6 +28,13 @@ from components.sidebar import render_sidebar
 from components.header import render_header
 from components.analysis_form import render_analysis_form
 from components.results_display import render_results
+from components.auth_components import (
+    render_auth_page, 
+    render_user_profile_page, 
+    render_user_info_sidebar,
+    render_admin_user_management,
+    check_authentication
+)
 from utils.api_checker import check_api_keys
 from utils.analysis_runner import run_stock_analysis, validate_analysis_params, format_analysis_results
 from utils.progress_tracker import SmartStreamlitProgressDisplay, create_smart_progress_callback
@@ -249,6 +256,7 @@ def initialize_session_state():
                 logger.info("📊 [配置恢复] 表单配置已恢复")
     except Exception as e:
         logger.warning(f"⚠️ [配置恢复] 表单配置恢复失败: {e}")
+
 
 def main():
     """主应用程序"""
@@ -536,15 +544,50 @@ def main():
     # 添加功能切换标题
     st.sidebar.markdown("**🎯 功能导航**")
 
+    # 检查用户登录状态
+    is_authenticated, current_username = check_authentication()
+    
+    # 检查是否需要登录验证
+    require_login = os.getenv("REQUIRE_LOGIN_FOR_ANALYSIS", "true").lower() == "true"
+    
+    # 功能列表
+    base_pages = ["📊 股票分析", "⚙️ 配置管理", "💾 缓存管理", "💰 Token统计", "📈 历史记录", "🔧 系统状态"]
+    
+    # 根据登录状态和登录要求调整页面列表
+    if require_login and not is_authenticated:
+        # 需要登录但用户未登录：只显示认证页面
+        all_pages = ["🔐 用户认证"]
+    elif is_authenticated:
+        # 已登录：显示所有功能页面，如果是管理员还显示用户管理
+        from web.utils.user_manager import get_user_manager
+        user_manager = get_user_manager()
+        user_info = user_manager.get_user_info(current_username)
+        
+        if user_info and user_info.get('role') == 'admin':
+            all_pages = base_pages + ["👤 用户资料", "👑 用户管理"]
+        else:
+            all_pages = base_pages + ["👤 用户资料"]
+    else:
+        # 不需要登录：显示所有功能页面和认证页面
+        all_pages = base_pages + ["🔐 用户认证"]
+    
     page = st.sidebar.selectbox(
         "切换功能模块",
-        ["📊 股票分析", "⚙️ 配置管理", "💾 缓存管理", "💰 Token统计", "📈 历史记录", "🔧 系统状态"],
+        all_pages,
         label_visibility="collapsed"
     )
 
     # 在功能选择和AI模型配置之间添加分隔线
     st.sidebar.markdown("---")
+    
+    # 渲染用户信息
+    render_user_info_sidebar()
 
+    # 如果需要登录且用户未登录，直接跳转到认证页面
+    if require_login and not is_authenticated and page != "🔐 用户认证":
+        render_auth_page()
+        return
+    
     # 根据选择的页面渲染不同内容
     if page == "⚙️ 配置管理":
         try:
@@ -577,7 +620,26 @@ def main():
         st.header("🔧 系统状态")
         st.info("系统状态功能开发中...")
         return
+    elif page == "🔐 用户认证":
+        render_auth_page()
+        return
+    elif page == "👤 用户资料":
+        render_user_profile_page()
+        return
+    elif page == "👑 用户管理":
+        render_admin_user_management()
+        return
 
+    # 处理用户资料页面显示（通过session state触发）
+    if st.session_state.get('show_user_profile', False):
+        render_user_profile_page()
+        return
+    
+    # 处理认证页面显示（通过session state触发）
+    if st.session_state.get('show_auth_page', False):
+        render_auth_page()
+        return
+    
     # 默认显示股票分析页面
     # 检查API密钥
     api_status = check_api_keys()
